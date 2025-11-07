@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Download files</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f6f8fb;margin:0}
+    .card{width:min(1100px,96%);background:white;padding:24px;border-radius:12px;box-shadow:0 6px 30px rgba(20,30,60,0.08)}
+    h1{margin:0 0 8px;font-size:20px}
+    p{margin:0 0 12px;color:#556}
+    .controls{display:flex;gap:10px;align-items:center;margin-bottom:12px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+    .item{display:flex;gap:8px;align-items:center;padding:10px;border:1px solid #eef2f7;border-radius:8px}
+    .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .btn{background:#0366d6;color:white;padding:8px 12px;border-radius:8px;text-decoration:none;border:0;cursor:pointer}
+    .ghost{background:transparent;color:#0366d6;border:1px solid #dfe9fb}
+    .muted{color:#667;font-size:13px}
+    .progress{height:8px;background:#eef2f7;border-radius:8px;overflow:hidden}
+    .progress > i{display:block;height:100%;width:0%;background:#0366d6}
+    footer{margin-top:14px;color:#667;font-size:13px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Direct downloads</h1>
+    <p>Click a button to download a single file, or use <strong>Download all</strong> to get everything as a ZIP. Put your files inside the <code>files/</code> folder in the repo root.</p>
+
+    <div class="controls">
+      <button id="downloadAll" class="btn">Download all as ZIP</button>
+      <button id="downloadZipIfExists" class="btn ghost">Prefer pre-made all-files.zip (if uploaded)</button>
+      <div style="flex:1"></div>
+      <div class="muted">Files folder: <code>./files/</code></div>
+    </div>
+
+    <div id="status" class="muted" style="margin-bottom:10px">Ready</div>
+    <div class="progress" style="margin-bottom:12px"><i id="bar"></i></div>
+
+    <div id="list" class="grid"></div>
+
+    <footer>Tip: If you already have a ZIP of all files, upload it as <code>files/all-files.zip</code> — the page will detect and download it. Otherwise the page will fetch each file and create a ZIP in the browser.</footer>
+  </div>
+
+  <!-- JSZip and FileSaver (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+
+  <script>
+    // --- Update this array to match the exact filenames you uploaded to files/ ---
+    const filenames = [
+      "Background Colour SharedPreferences",
+      "colorMenu",
+      "contact scan",
+      "countincrise",
+      "CRUD sqlite app user",
+      "emailLogin",
+      "Generate Dynamic List",
+      "IMG animation",
+      "Login",
+      "msg app",
+      "music play pose",
+      "notification",
+      "P1",
+      "Phone Dialer App",
+      "prime notification",
+      "progressBar",
+      "Simple Audio Player (Play, PauseResume, Stop)",
+      "Simple Video Player using VideoView",
+      "SQLite Authentication App (Login & Register)",
+      "User Registration App",
+      "Web Browser using WebView",
+      "location",
+      "SavedInstanceState App",
+      "SharedPreference App",
+      "Tab Host Index"
+    ];
+
+    const list = document.getElementById('list');
+    const status = document.getElementById('status');
+    const bar = document.getElementById('bar');
+
+    function escapeFilenameForUrl(name){
+      // encodeURIComponent keeps spaces and special chars safe for URLs; GitHub preserves filenames as-is.
+      return './files/' + encodeURIComponent(name);
+    }
+
+    async function forceDownload(relPath, suggestedName) {
+      try {
+        status.textContent = 'Downloading "' + suggestedName + '"...';
+        const resp = await fetch(relPath);
+        if (!resp.ok) throw new Error('Network response was not ok');
+        const blob = await resp.blob();
+        saveAs(blob, suggestedName);
+        status.textContent = 'Downloaded: ' + suggestedName;
+      } catch (err) {
+        status.textContent = 'Download failed: ' + err.message;
+        alert('Download failed: ' + err.message + '
+
+Make sure the files exist in the files/ folder and are committed to GitHub.');
+      }
+    }
+
+    // Build UI
+    filenames.forEach(name => {
+      const rel = escapeFilenameForUrl(name);
+      const item = document.createElement('div');
+      item.className = 'item';
+
+      const span = document.createElement('div');
+      span.className = 'name';
+      span.textContent = name;
+
+      const a = document.createElement('button');
+      a.className = 'btn';
+      a.textContent = 'Download';
+      a.addEventListener('click', (e) => forceDownload(rel, name));
+
+      item.appendChild(span);
+      item.appendChild(a);
+      list.appendChild(item);
+    });
+
+    // --- Download all logic ---
+    async function tryDownloadPreMadeZip(){
+      const zipPath = './files/all-files.zip';
+      status.textContent = 'Checking for pre-made ZIP...';
+      try {
+        const resp = await fetch(zipPath, { method: 'GET' });
+        if (!resp.ok) return false;
+        const blob = await resp.blob();
+        // naive check: content-type includes zip OR filename exists
+        // proceed to download
+        saveAs(blob, 'all-files.zip');
+        status.textContent = 'Downloaded pre-made all-files.zip';
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    async function zipAndDownloadAll(){
+      if (!window.JSZip) {
+        alert('JSZip not loaded — cannot create ZIP in browser.');
+        return;
+      }
+      const zip = new JSZip();
+      status.textContent = 'Preparing to fetch ' + filenames.length + ' files...';
+      let count = 0;
+      bar.style.width = '0%';
+
+      for (const name of filenames){
+        const url = escapeFilenameForUrl(name);
+        try {
+          status.textContent = 'Fetching: ' + name;
+          const resp = await fetch(url);
+          if (!resp.ok) {
+            console.warn('File not found:', name);
+            // add a small placeholder text file to indicate missing
+            zip.file(name + '.missing.txt', 'File not found on server: ' + name);
+          } else {
+            const blob = await resp.blob();
+            zip.file(name, blob);
+          }
+        } catch (err) {
+          console.error('Error fetching', name, err);
+          zip.file(name + '.error.txt', 'Error fetching file: ' + err.message);
+        }
+        count++;
+        bar.style.width = Math.round(count / filenames.length * 100) + '%';
+      }
+
+      status.textContent = 'Creating ZIP...';
+      try {
+        const content = await zip.generateAsync({type:'blob'}, metadata => {
+          if (metadata && metadata.percent) bar.style.width = Math.round(metadata.percent) + '%';
+        });
+        saveAs(content, 'all-files.zip');
+        status.textContent = 'All files zipped and downloaded (all-files.zip)';
+        bar.style.width = '100%';
+      } catch (e) {
+        status.textContent = 'Failed creating ZIP: ' + e.message;
+        alert('Failed to create ZIP: ' + e.message);
+      }
+    }
+
+    document.getElementById('downloadAll').addEventListener('click', async () => {
+      status.textContent = 'Preparing to download all files...';
+      bar.style.width = '2%';
+      // First try pre-made ZIP if user uploaded it
+      const found = await tryDownloadPreMadeZip();
+      if (!found) {
+        // not found -> create ZIP in browser
+        await zipAndDownloadAll();
+      }
+    });
+
+    // Separate button to force checking pre-made zip only
+    document.getElementById('downloadZipIfExists').addEventListener('click', async () => {
+      status.textContent = 'Checking for pre-made ZIP...';
+      bar.style.width = '2%';
+      const ok = await tryDownloadPreMadeZip();
+      if (!ok) status.textContent = 'No pre-made ZIP found at files/all-files.zip';
+    });
+
+  </script>
+</body>
+</html>
