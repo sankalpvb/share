@@ -1,0 +1,204 @@
+Files & locations
+app/src/main/res/layout/activity_main.xml      (your existing layout)
+app/src/main/java/com/example/audioplayer/MainActivity.java  (updated)
+app/src/main/res/raw/doremon.mp3              (your audio file — add this)
+
+1) activity_main.xml
+
+Location: app/src/main/res/layout/activity_main.xml
+(Your layout — keep as-is)
+
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="20dp">
+
+    <TextView
+        android:id="@+id/tvTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Simple Audio Player"
+        android:textSize="20sp"
+        android:layout_marginBottom="30dp"/>
+
+    <Button
+        android:id="@+id/btnPlay"
+        android:backgroundTint="@android:color/holo_blue_light"
+        android:textColor="@android:color/black"
+        android:layout_width="200dp"
+        android:layout_height="wrap_content"
+        android:text="Play"/>
+
+    <Button
+        android:id="@+id/btnPause"
+        android:backgroundTint="@android:color/holo_blue_light"
+        android:textColor="@android:color/black"
+        android:layout_width="200dp"
+        android:layout_height="wrap_content"
+        android:text="Pause"
+        android:layout_marginTop="20dp"/>
+
+    <Button
+        android:id="@+id/btnStop"
+        android:backgroundTint="@android:color/holo_blue_light"
+        android:textColor="@android:color/black"
+        android:layout_width="200dp"
+        android:layout_height="wrap_content"
+        android:text="Stop"
+        android:layout_marginTop="20dp"/>
+</LinearLayout>
+
+2) MainActivity.java (robust & lifecycle-safe)
+
+Location: app/src/main/java/com/example/audioplayer/MainActivity.java
+
+package com.example.audioplayer;
+
+import androidx.appcompat.app.AppCompatActivity;
+import android.media.MediaPlayer;
+import android.os.Bundle;
+import android.widget.Button;
+import android.widget.Toast;
+
+public class MainActivity extends AppCompatActivity {
+
+    private Button btnPlay, btnPause, btnStop;
+    private MediaPlayer mediaPlayer;
+    private boolean isPaused = false;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+		// find views
+        btnPlay = findViewById(R.id.btnPlay);
+        btnPause = findViewById(R.id.btnPause);
+        btnStop = findViewById(R.id.btnStop);
+
+        // Play
+        btnPlay.setOnClickListener(v -> {
+            try {
+                ensurePlayer();
+                if (!mediaPlayer.isPlaying()) {
+                    mediaPlayer.start();
+                    isPaused = false;
+                    btnPause.setText("Pause");
+                    Toast.makeText(this, "Playing Audio", Toast.LENGTH_SHORT).show();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                Toast.makeText(this, "Playback error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        // Pause / Resume
+        btnPause.setOnClickListener(v -> {
+            try {
+                if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+                    mediaPlayer.pause();
+                    isPaused = true;
+                    btnPause.setText("Resume");
+                    Toast.makeText(this, "Audio Paused", Toast.LENGTH_SHORT).show();
+                } else if (mediaPlayer != null && isPaused) {
+                    mediaPlayer.start();
+                    isPaused = false;
+                    btnPause.setText("Pause");
+                    Toast.makeText(this, "Audio Resumed", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(this, "No audio to pause/resume", Toast.LENGTH_SHORT).show();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                Toast.makeText(this, "Pause/Resume error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        // Stop
+        btnStop.setOnClickListener(v -> {
+            try {
+                if (mediaPlayer != null && (mediaPlayer.isPlaying() || isPaused)) {
+                    mediaPlayer.stop();
+                    releasePlayer();
+                    isPaused = false;
+                    btnPause.setText("Pause");
+                    Toast.makeText(this, "Audio Stopped", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(this, "Nothing to stop", Toast.LENGTH_SHORT).show();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                Toast.makeText(this, "Stop error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    /**
+     * Ensure mediaPlayer is created and prepared.
+     */
+    private void ensurePlayer() {
+        if (mediaPlayer == null) {
+            // Make sure you have doramon (doremon.mp3) in res/raw
+            mediaPlayer = MediaPlayer.create(this, R.raw.doremon);
+            if (mediaPlayer == null) {
+                throw new IllegalStateException("MediaPlayer.create returned null — check R.raw.doremon exists and is a valid audio file.");
+            }
+            mediaPlayer.setOnCompletionListener(mp -> {
+                // When playback completes, reset player and UI state
+                releasePlayer();
+                isPaused = false;
+                btnPause.setText("Pause");
+            });
+        }
+    }
+
+    /**
+     * Release and null-out the mediaPlayer.
+     */
+    private void releasePlayer() {
+        try {
+            if (mediaPlayer != null) {
+                mediaPlayer.reset();
+                mediaPlayer.release();
+                mediaPlayer = null;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Pause playback when activity is no longer in foreground
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+            mediaPlayer.pause();
+            isPaused = true;
+            btnPause.setText("Resume");
+        }
+    }
+
+    // Cleanup
+    @Override
+    protected void onDestroy() {
+        releasePlayer();
+        super.onDestroy();
+    }
+}
+
+3) Add the audio file
+
+Create the raw resource folder and add your audio:
+
+Path: app/src/main/res/raw/doremon.mp3
+
+How to add:
+
+In Android Studio Project view → app/src/main/res → right click → New → Android Resource Directory → Resource type = raw → OK.
+
+Copy your audio file into that res/raw folder and name it doremon.mp3 (all lowercase, no spaces).
+
+In code we reference it as R.raw.doremon.

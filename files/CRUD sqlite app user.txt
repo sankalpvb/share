@@ -1,0 +1,358 @@
+Project files / locations
+app/src/main/res/layout/activity_main.xml
+app/src/main/java/com/example/usercrudapp/MainActivity.java
+app/src/main/java/com/example/usercrudapp/DBHelper.java
+
+1) activity_main.xml
+
+Location: app/src/main/res/layout/activity_main.xml
+(Your layout, unchanged)
+
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/mainLayout"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="20dp"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <EditText
+        android:id="@+id/etId"
+        android:hint="User ID (AutoFill)"
+        android:inputType="number"
+        android:enabled="false"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <EditText
+        android:id="@+id/etName"
+        android:hint="Name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <EditText
+        android:id="@+id/etAddress"
+        android:hint="Address"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <EditText
+        android:id="@+id/etContact"
+        android:hint="Contact"
+        android:inputType="phone"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp">
+
+        <Button
+            android:id="@+id/btnAdd"
+            android:text="Add"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
+
+        <Button
+            android:id="@+id/btnUpdate"
+            android:text="Update"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="10dp"/>
+
+        <Button
+            android:id="@+id/btnDelete"
+            android:text="Delete"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="10dp"/>
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/btnList"
+        android:text="List Users"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"/>
+
+    <ListView
+        android:id="@+id/listViewUsers"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"/>
+</LinearLayout>
+
+2) DBHelper.java
+
+Location: app/src/main/java/com/example/usercrudapp/DBHelper.java
+Added getUserById() method and ensured safe DB operations.
+
+package com.example.usercrudapp;
+
+import android.content.ContentValues;
+import android.content.Context;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteOpenHelper;
+import androidx.annotation.Nullable;
+
+public class DBHelper extends SQLiteOpenHelper {
+
+    public static final String DATABASE_NAME = "UserDB.db";
+    public static final String TABLE_NAME = "users";
+    public static final String COL_ID = "id";
+    public static final String COL_NAME = "name";
+    public static final String COL_ADDRESS = "address";
+    public static final String COL_CONTACT = "contact";
+
+    public DBHelper(@Nullable Context context) {
+        super(context, DATABASE_NAME, null, 1);
+    }
+
+    @Override
+    public void onCreate(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_NAME + " (" +
+                COL_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                COL_NAME + " TEXT, " +
+                COL_ADDRESS + " TEXT, " +
+                COL_CONTACT + " TEXT)");
+    }
+
+    @Override
+    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        // For now, drop and recreate — in production use migrations
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_NAME);
+        onCreate(db);
+    }
+
+    public boolean insertUser(String name, String address, String contact) {
+        if (name == null) name = "";
+        if (address == null) address = "";
+        if (contact == null) contact = "";
+
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues cv = new ContentValues();
+        cv.put(COL_NAME, name);
+        cv.put(COL_ADDRESS, address);
+        cv.put(COL_CONTACT, contact);
+        long result = db.insert(TABLE_NAME, null, cv);
+        return result != -1;
+    }
+
+    public boolean updateUser(String id, String name, String address, String contact) {
+        if (id == null || id.trim().isEmpty()) return false;
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues cv = new ContentValues();
+        cv.put(COL_NAME, name == null ? "" : name);
+        cv.put(COL_ADDRESS, address == null ? "" : address);
+        cv.put(COL_CONTACT, contact == null ? "" : contact);
+        int result = db.update(TABLE_NAME, cv, COL_ID + "=?", new String[]{id});
+        return result > 0;
+    }
+
+    public boolean deleteUser(String id) {
+        if (id == null || id.trim().isEmpty()) return false;
+        SQLiteDatabase db = this.getWritableDatabase();
+        int result = db.delete(TABLE_NAME, COL_ID + "=?", new String[]{id});
+        return result > 0;
+    }
+
+    public Cursor getAllUsers() {
+        SQLiteDatabase db = this.getReadableDatabase();
+        return db.rawQuery("SELECT * FROM " + TABLE_NAME + " ORDER BY " + COL_ID + " ASC", null);
+    }
+
+    /**
+     * Return a Cursor pointing to the user row with given id.
+     * Caller must close the returned cursor.
+     */
+    public Cursor getUserById(int id) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        return db.rawQuery("SELECT * FROM " + TABLE_NAME + " WHERE " + COL_ID + "=?",
+                new String[]{String.valueOf(id)});
+    }
+}
+
+3) MainActivity.java
+
+Location: app/src/main/java/com/example/usercrudapp/MainActivity.java
+Reworked to initialize adapter once, handle input validation, use getUserById() to fill fields, and safe resource handling.
+
+package com.example.usercrudapp;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+import android.database.Cursor;
+import android.os.Bundle;
+import android.text.TextUtils;
+import android.widget.*;
+import java.util.ArrayList;
+
+public class MainActivity extends AppCompatActivity {
+
+    EditText etId, etName, etAddress, etContact;
+    Button btnAdd, btnUpdate, btnDelete, btnList;
+    ListView listViewUsers;
+    DBHelper dbHelper;
+    ArrayAdapter<String> adapter;
+    ArrayList<String> userList;
+    ArrayList<Integer> userIdList;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        etId = findViewById(R.id.etId);
+        etName = findViewById(R.id.etName);
+        etAddress = findViewById(R.id.etAddress);
+        etContact = findViewById(R.id.etContact);
+        btnAdd = findViewById(R.id.btnAdd);
+        btnUpdate = findViewById(R.id.btnUpdate);
+        btnDelete = findViewById(R.id.btnDelete);
+        btnList = findViewById(R.id.btnList);
+        listViewUsers = findViewById(R.id.listViewUsers);
+
+        dbHelper = new DBHelper(this);
+        userList = new ArrayList<>();
+        userIdList = new ArrayList<>();
+
+        // Initialize adapter once to avoid null pointer issues
+        adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, userList);
+        listViewUsers.setAdapter(adapter);
+
+        // Load initial users
+        loadUsers();
+
+        // ADD
+        btnAdd.setOnClickListener(v -> {
+            String name = etName.getText().toString().trim();
+            String address = etAddress.getText().toString().trim();
+            String contact = etContact.getText().toString().trim();
+
+            if (TextUtils.isEmpty(name)) {
+                Toast.makeText(this, "Name is required", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            boolean inserted = dbHelper.insertUser(name, address, contact);
+            if (inserted) {
+                Toast.makeText(this, "User Added", Toast.LENGTH_SHORT).show();
+                clearFields();
+                loadUsers();
+            } else {
+                Toast.makeText(this, "Error Adding User", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        // UPDATE
+        btnUpdate.setOnClickListener(v -> {
+            String idStr = etId.getText().toString().trim();
+            if (TextUtils.isEmpty(idStr)) {
+                Toast.makeText(this, "Select a user from the list to update", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            String name = etName.getText().toString().trim();
+            String address = etAddress.getText().toString().trim();
+            String contact = etContact.getText().toString().trim();
+
+            boolean updated = dbHelper.updateUser(idStr, name, address, contact);
+            if (updated) {
+                Toast.makeText(this, "User Updated", Toast.LENGTH_SHORT).show();
+                clearFields();
+                loadUsers();
+            } else {
+                Toast.makeText(this, "Error Updating User", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        // DELETE
+        btnDelete.setOnClickListener(v -> {
+            String idStr = etId.getText().toString().trim();
+            if (TextUtils.isEmpty(idStr)) {
+                Toast.makeText(this, "Select a user from the list to delete", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            boolean deleted = dbHelper.deleteUser(idStr);
+            if (deleted) {
+                Toast.makeText(this, "User Deleted", Toast.LENGTH_SHORT).show();
+                clearFields();
+                loadUsers();
+            } else {
+                Toast.makeText(this, "Error Deleting User", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        // LIST USERS
+        btnList.setOnClickListener(v -> loadUsers());
+
+        // CLICK ITEM → SHOW IN EDITTEXT using getUserById for accuracy
+        listViewUsers.setOnItemClickListener((parent, view, position, id) -> {
+            if (position < 0 || position >= userIdList.size()) return;
+            int userId = userIdList.get(position);
+
+            Cursor cursor = null;
+            try {
+                cursor = dbHelper.getUserById(userId);
+                if (cursor != null && cursor.moveToFirst()) {
+                    etId.setText(String.valueOf(cursor.getInt(0)));
+                    etName.setText(cursor.getString(1));
+                    etAddress.setText(cursor.getString(2));
+                    etContact.setText(cursor.getString(3));
+                } else {
+                    Toast.makeText(this, "User not found", Toast.LENGTH_SHORT).show();
+                }
+            } finally {
+                if (cursor != null) cursor.close();
+            }
+        });
+    }
+
+    private void loadUsers() {
+        userList.clear();
+        userIdList.clear();
+
+        Cursor cursor = null;
+        try {
+            cursor = dbHelper.getAllUsers();
+            if (cursor != null && cursor.moveToFirst()) {
+                do {
+                    int id = cursor.getInt(cursor.getColumnIndexOrThrow(DBHelper.COL_ID));
+                    String name = cursor.getString(cursor.getColumnIndexOrThrow(DBHelper.COL_NAME));
+                    String contact = cursor.getString(cursor.getColumnIndexOrThrow(DBHelper.COL_CONTACT));
+
+                    userList.add(id + " - " + name + " - " + contact);
+                    userIdList.add(id);
+                } while (cursor.moveToNext());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            if (cursor != null) cursor.close();
+        }
+
+        adapter.notifyDataSetChanged();
+    }
+
+    private void clearFields() {
+        etId.setText("");
+        etName.setText("");
+        etAddress.setText("");
+        etContact.setText("");
+    }
+}
+
+Why these fixes matter (quick summary)
+
+Recreating adapters repeatedly or leaving them null leads to NullPointerException. Now the adapter is created once.
+
+Iterating a cursor to find a specific ID is inefficient and error-prone; getUserById() is accurate and simpler.
+
+Not validating etId before update/delete causes logic errors — now the UI prompts the user to select an item first.
+
+All cursors are closed in finally blocks to prevent cursor leaks.

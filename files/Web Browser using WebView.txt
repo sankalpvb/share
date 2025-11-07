@@ -1,0 +1,343 @@
+1) activity_main.xml
+
+Location: app/src/main/res/layout/activity_main.xml
+(unchanged from your last message; included for completeness)
+
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- URL bar + Go -->
+    <LinearLayout
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <EditText
+            android:id="@+id/etUrl"
+            android:hint="Enter URL e.g. https://example.com"
+            android:inputType="textUri"
+            android:singleLine="true"
+            android:layout_weight="1"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"/>
+
+        <Button
+            android:id="@+id/btnGo"
+            android:text="Go"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
+    </LinearLayout>
+
+    <!-- Controls -->
+    <LinearLayout
+        android:orientation="horizontal"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:paddingBottom="8dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <Button
+            android:id="@+id/btnBack"
+            android:text="◀ Back"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"/>
+
+        <Button
+            android:id="@+id/btnForward"
+            android:text="Forward ▶"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"/>
+
+        <Button
+            android:id="@+id/btnReload"
+            android:text="Reload"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"/>
+
+        <Button
+            android:id="@+id/btnClearHistory"
+            android:text="Clear History"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"/>
+    </LinearLayout>
+
+    <!-- Tiny progress bar -->
+    <ProgressBar
+        android:id="@+id/progress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:max="100"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="3dp" />
+
+    <!-- Web content -->
+    <WebView
+        android:id="@+id/webView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"/>
+</LinearLayout>
+
+2) MainActivity.java (hardened)
+
+Location: app/src/main/java/com/example/webbrowser/MainActivity.java
+
+package com.example.webbrowser;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+
+import android.annotation.SuppressLint;
+import android.graphics.Bitmap;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
+import android.text.TextUtils;
+import android.view.View;
+import android.view.inputmethod.EditorInfo;
+import android.webkit.CookieManager;
+import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ProgressBar;
+import android.widget.Toast;
+
+/**
+ * Simple WebView browser with navigation controls, a URL bar and a tiny progress bar.
+ */
+public class MainActivity extends AppCompatActivity {
+
+    private WebView webView;
+    private EditText etUrl;
+    private Button btnGo, btnBack, btnForward, btnReload, btnClearHistory;
+    private ProgressBar progress;
+
+    @SuppressLint("SetJavaScriptEnabled")
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+		// views
+        webView = findViewById(R.id.webView);
+        etUrl = findViewById(R.id.etUrl);
+        btnGo = findViewById(R.id.btnGo);
+        btnBack = findViewById(R.id.btnBack);
+        btnForward = findViewById(R.id.btnForward);
+        btnReload = findViewById(R.id.btnReload);
+        btnClearHistory = findViewById(R.id.btnClearHistory);
+        progress = findViewById(R.id.progress);
+
+        // WebView settings
+        WebSettings ws = webView.getSettings();
+        ws.setJavaScriptEnabled(true);
+        ws.setDomStorageEnabled(true);
+        ws.setLoadWithOverviewMode(true);
+        ws.setUseWideViewPort(true);
+        ws.setBuiltInZoomControls(true);
+        ws.setDisplayZoomControls(false);
+        // Improve caching / performance if needed
+        ws.setAppCacheEnabled(true);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ws.setSafeBrowsingEnabled(true);
+        }
+
+        // Keep navigation buttons updated
+        Runnable updateNav = this::updateNavButtons;
+
+        webView.setWebViewClient(new WebViewClient() {
+            @Override public void onPageStarted(WebView view, String url, Bitmap favicon) {
+                progress.setVisibility(View.VISIBLE);
+                etUrl.setText(url);
+                updateNav.run();
+            }
+
+            @Override public void onPageFinished(WebView view, String url) {
+                progress.setVisibility(View.GONE);
+                updateNav.run();
+            }
+
+            @SuppressWarnings("deprecation") // for API < 24
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                // Keep navigation inside WebView
+                view.loadUrl(url);
+                return true;
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                // For API >= 24
+                Uri uri = request.getUrl();
+                view.loadUrl(uri.toString());
+                return true;
+            }
+
+            @Override
+            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                // Old API
+                Toast.makeText(MainActivity.this, "Load error: " + description, Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest req, android.webkit.WebResourceError err) {
+                // New API
+                Toast.makeText(MainActivity.this, "Load error: " + err.getDescription(), Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override public void onProgressChanged(WebView view, int newProgress) {
+                progress.setProgress(newProgress);
+                if (newProgress >= 100) progress.setVisibility(View.GONE);
+                else progress.setVisibility(View.VISIBLE);
+            }
+        });
+
+        // Actions
+        btnGo.setOnClickListener(v -> loadFromBar());
+
+        etUrl.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_GO || actionId == EditorInfo.IME_ACTION_DONE) {
+                loadFromBar();
+                return true;
+            }
+            return false;
+        });
+
+        btnBack.setOnClickListener(v -> {
+            if (webView.canGoBack()) webView.goBack();
+            updateNav.run();
+        });
+
+        btnForward.setOnClickListener(v -> {
+            if (webView.canGoForward()) webView.goForward();
+            updateNav.run();
+        });
+
+        btnReload.setOnClickListener(v -> webView.reload());
+
+        btnClearHistory.setOnClickListener(v -> {
+            webView.clearHistory();
+            webView.clearCache(true);
+            CookieManager.getInstance().removeAllCookies(null);
+            CookieManager.getInstance().flush();
+            updateNav.run();
+            Toast.makeText(this, "History & cache cleared", Toast.LENGTH_SHORT).show();
+        });
+
+        // Load a default page
+        String home = "https://www.example.com";
+        etUrl.setText(home);
+        webView.loadUrl(home);
+    }
+
+    private void loadFromBar() {
+        String url = etUrl.getText().toString().trim();
+        if (TextUtils.isEmpty(url)) {
+            Toast.makeText(this, "Enter a URL", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        // Normalize: add scheme if missing
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            url = "https://" + url;
+        }
+        webView.loadUrl(url);
+    }
+
+    private void updateNavButtons() {
+        if (webView == null) return;
+        btnBack.setEnabled(webView.canGoBack());
+        btnForward.setEnabled(webView.canGoForward());
+    }
+
+    // Back button navigates web history first
+    @Override
+    public void onBackPressed() {
+        if (webView != null && webView.canGoBack()) {
+            webView.goBack();
+            updateNavButtons();
+        } else {
+            super.onBackPressed();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        // Clean up WebView to avoid leaks
+        if (webView != null) {
+            try {
+                webView.loadUrl("about:blank");
+                webView.clearHistory();
+                // remove from parent safely
+                if (webView.getParent() instanceof android.view.ViewGroup) {
+                    ((android.view.ViewGroup) webView.getParent()).removeView(webView);
+                }
+                webView.destroy();
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                webView = null;
+            }
+        }
+        super.onDestroy();
+    }
+}
+
+3) AndroidManifest.xml (add INTERNET permission)
+
+Location: app/src/main/AndroidManifest.xml — ensure the package matches your Java package.
+
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.webbrowser">
+
+    <!-- Required to load pages from the web -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:allowBackup="true"
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+
+        <activity android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+
+    </application>
+</manifest>
+
+Quick notes & tips
+
+Always add INTERNET permission (otherwise WebView.loadUrl() will fail silently for remote pages).
+
+Use shouldOverrideUrlLoading so clicks remain inside your WebView (not launching external browser). I added both overloads to support older and modern APIs.
+
+I added basic error toasts (onReceivedError) so you see failure reasons while testing.
+
+onDestroy() now safely checks the parent before removing the view — avoids NPE.
+
+If you plan to load arbitrary sites, consider enabling/handling mixed content and user agent tweaks carefully. Do not enable insecure settings in production.
+
+If you want to persist cookies across app launches, CookieManager is already used to clear — you can also use it to inspect/enable cookie behavior.

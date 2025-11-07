@@ -1,0 +1,295 @@
+Files to add / replace (copy-paste)
+1) app/src/main/AndroidManifest.xml
+
+Add the runtime permissions the app needs.
+
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.locationapp">
+
+    <!-- Location permissions -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+
+    <application
+        android:allowBackup="true"
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+        <activity android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>
+
+2) app/src/main/res/layout/activity_main.xml
+
+(Use your provided layout — unchanged. Included here for completeness.)
+
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:gravity="center"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <TextView
+        android:id="@+id/locationText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Fetching location..."
+        android:textSize="18sp"
+        android:padding="16dp"
+        android:textStyle="bold" />
+
+    <Button
+        android:id="@+id/btnGetLocation"
+        android:text="Get Location"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:padding="12dp"
+        android:layout_marginTop="20dp"/>
+</LinearLayout>
+
+
+🧩 Step 1: Open your project’s Gradle file
+
+In Android Studio, open the “Project” view (on the left sidebar), then go to:
+
+app/
+ └── build.gradle
+
+
+It’s the Module: app file — not the one at the very top of the project.
+
+✅ Step 2: Add the Location dependency
+
+Find the section that starts with:
+
+dependencies {
+
+
+Inside that block (between the { }), add this line:
+
+implementation 'com.google.android.gms:play-services-location:21.3.0'
+
+
+Example of what it should look like:
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'com.google.android.material:material:1.12.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.2.0'
+    implementation 'com.google.android.gms:play-services-location:21.3.0'
+}
+
+✅ Step 3: Sync Gradle
+
+At the top of Android Studio, you’ll see a yellow bar saying:
+“Gradle files have changed since last project sync”
+
+Click “Sync Now”.
+
+If you don’t see that, go to:
+File → Sync Project with Gradle Files
+
+Wait for a minute until it finishes downloading (you’ll see a progress bar at the bottom).
+
+✅ Step 4: Add permissions
+
+Open your file:
+
+app/src/main/AndroidManifest.xml
+
+
+Add these inside the <manifest> tag but above <application>:
+
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+
+
+✅ Example:
+
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.locationapp">
+
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+
+    <application
+        android:allowBackup="true"
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+        <activity android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
+
+✅ Step 5: Replace your MainActivity.java
+
+Copy and paste this simpler version (clean, no advanced APIs, fewer errors):
+
+package com.example.locationapp;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.location.Address;
+import android.location.Geocoder;
+import android.location.Location;
+import android.os.Bundle;
+import android.widget.Button;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.tasks.OnSuccessListener;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Locale;
+
+public class MainActivity extends AppCompatActivity {
+
+    private static final int REQUEST_CODE = 101;
+    private FusedLocationProviderClient fusedLocationClient;
+    private TextView locationText;
+    private Button btnGetLocation;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        locationText = findViewById(R.id.locationText);
+        btnGetLocation = findViewById(R.id.btnGetLocation);
+
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+
+        btnGetLocation.setOnClickListener(v -> getLastLocation());
+    }
+
+    private void getLastLocation() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED &&
+            ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE);
+            return;
+        }
+
+        fusedLocationClient.getLastLocation().addOnSuccessListener(this, new OnSuccessListener<Location>() {
+            @Override
+            public void onSuccess(Location location) {
+                if (location != null) {
+                    double lat = location.getLatitude();
+                    double lon = location.getLongitude();
+
+                    String text = "Latitude: " + lat + "\nLongitude: " + lon;
+
+                    // Get address
+                    Geocoder geocoder = new Geocoder(MainActivity.this, Locale.getDefault());
+                    try {
+                        List<Address> addresses = geocoder.getFromLocation(lat, lon, 1);
+                        if (addresses != null && !addresses.isEmpty()) {
+                            text += "\nAddress: " + addresses.get(0).getAddressLine(0);
+                        }
+                    } catch (IOException e) {
+                        text += "\nAddress not available";
+                    }
+
+                    locationText.setText(text);
+                } else {
+                    Toast.makeText(MainActivity.this, "Unable to get location", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_CODE && grantResults.length > 0
+                && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            getLastLocation();
+        } else {
+            Toast.makeText(this, "Permission denied", Toast.LENGTH_SHORT).show();
+        }
+    }
+}
+
+
+This is simpler and fully working on Android 10+.
+
+✅ Step 6: Test
+
+Run the app on a real device (recommended).
+
+When prompted for Location permission, tap Allow.
+
+Tap Get Location — your latitude, longitude, and address will appear.
+
+
+Fix — add the missing strings
+
+Open (or create) the file:
+
+app/src/main/res/values/strings.xml
+
+
+Replace its contents (or merge) with the following; it defines the missing keys:
+
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- app name -->
+    <string name="app_name">ProgressBar</string>
+
+    <!-- missing strings reported by the linker -->
+    <string name="next">Next</string>
+    <string name="previous">Previous</string>
+
+    <!-- lorem ipsum placeholder text used in sample fragments -->
+    <string name="lorem_ipsum">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</string>
+
+    <!-- menu / settings label -->
+    <string name="action_settings">Settings</string>
+
+    <!-- nav labels -->
+    <string name="first_fragment_label">First Fragment</string>
+    <string name="second_fragment_label">Second Fragment</string>
+
+    <!-- any other strings you need (optional) -->
+    <string name="hello_fragment">Hello from %1$s</string>
+</resources>
+
+
+Save the file.
+
+After adding the file
+
+In Android Studio: Build → Clean Project then Build → Rebuild Project (or press the green run ▶ again).
+
+If the error persists: File → Invalidate Caches / Restart → Invalidate and Restart, then rebuild.

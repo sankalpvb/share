@@ -1,0 +1,160 @@
+File locations
+app/src/main/res/layout/activity_main.xml
+app/src/main/java/com/example/sharedpreference/MainActivity.java
+app/src/main/AndroidManifest.xml
+app/src/main/res/values/strings.xml
+
+1) activity_main.xml
+
+Path: app/src/main/res/layout/activity_main.xml — (unchanged besides formatting; paddingHorizontal is fine on modern SDKs)
+
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingHorizontal="16dp"
+    android:paddingTop="50dp">
+
+    <EditText
+        android:id="@+id/name_input"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Enter your name" />
+
+    <Button
+        android:id="@+id/save_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="SAVE" />
+
+    <Button
+        android:id="@+id/load_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="LOAD" />
+
+    <TextView
+        android:id="@+id/saved_name_display"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Saved name will appear here"
+        android:layout_marginTop="16dp"/>
+</LinearLayout>
+
+2) MainActivity.java (improved)
+
+Path: app/src/main/java/com/example/sharedpreference/MainActivity.java
+
+package com.example.sharedpreference;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.os.Bundle;
+import android.text.TextUtils;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.TextView;
+import android.widget.Toast;
+
+public class MainActivity extends AppCompatActivity {
+    private EditText nameInput;
+    private TextView savedNameDisplay;
+    private Button saveButton, loadButton;
+
+    private static final String PREFS_NAME = "MyPreferences";
+    private static final String KEY_NAME = "name";
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        nameInput = findViewById(R.id.name_input);
+        savedNameDisplay = findViewById(R.id.saved_name_display);
+        saveButton = findViewById(R.id.save_button);
+        loadButton = findViewById(R.id.load_button);
+
+        // Load saved name when the app starts
+        loadSavedName();
+
+        saveButton.setOnClickListener(view -> saveName());
+        loadButton.setOnClickListener(view -> loadSavedName());
+    }
+
+    private void saveName() {
+        String name = nameInput.getText() == null ? "" : nameInput.getText().toString().trim();
+        if (TextUtils.isEmpty(name)) {
+            Toast.makeText(this, "Please enter a name before saving", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        SharedPreferences sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putString(KEY_NAME, name);
+        editor.apply(); // asynchronous commit
+
+        Toast.makeText(this, "Name saved", Toast.LENGTH_SHORT).show();
+    }
+
+    private void loadSavedName() {
+        SharedPreferences sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        String savedName = sharedPreferences.getString(KEY_NAME, null);
+        if (savedName == null) {
+            savedNameDisplay.setText("Saved name will appear here");
+        } else {
+            savedNameDisplay.setText(savedName);
+            Toast.makeText(this, "Loaded saved name", Toast.LENGTH_SHORT).show();
+        }
+    }
+}
+
+3) AndroidManifest.xml
+
+Path: app/src/main/AndroidManifest.xml — ensure package matches your Java package
+
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.sharedpreference">
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>
+
+4) strings.xml (new)
+
+Path: app/src/main/res/values/strings.xml — required for @string/app_name used in manifest
+
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SharedPreferenceApp</string>
+</resources>
+
+Tips & notes
+
+SharedPreferences persists until app uninstall or explicit removal. Good for small key/value data like this.
+
+editor.apply() is asynchronous and preferred for UI thread writes; use commit() only if you need immediate confirmation (it blocks).
+
+I added validation so empty names aren't saved accidentally.
+
+Toast confirmations: you get feedback for save/load actions.
+
+If you want to automatically show saved name on app start without a Toast, remove the Toast inside loadSavedName().

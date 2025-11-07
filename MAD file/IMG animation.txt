@@ -1,0 +1,161 @@
+✅ Final working project structure
+app/
+ └── src/
+      └── main/
+           ├── java/
+           │    └── com/example/animationapp/
+           │         └── MainActivity.java
+           ├── res/
+           │    ├── anim/
+           │    │    ├── rotate.xml
+           │    │    ├── fade.xml
+           │    │    └── zoom.xml
+           │    ├── drawable/
+           │    │    └── dm.png   ← your image file
+           │    ├── layout/
+           │    │    └── activity_main.xml
+           │    └── values/
+           │         └── strings.xml
+           └── AndroidManifest.xml
+
+🧩 File contents
+🖼️ activity_main.xml
+
+Path: res/layout/activity_main.xml
+
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <Spinner
+        android:id="@+id/spinnerAnimations"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <ImageView
+        android:id="@+id/imageView"
+        android:layout_width="209dp"
+        android:layout_height="259dp"
+        android:layout_marginTop="30dp"
+        android:src="@drawable/dm" />
+</LinearLayout>
+
+🔄 Animation XML files
+
+Path: res/anim/
+
+🌀 rotate.xml
+<?xml version="1.0" encoding="utf-8"?>
+<rotate xmlns:android="http://schemas.android.com/apk/res/android"
+    android:fromDegrees="0"
+    android:toDegrees="360"
+    android:pivotX="50%"
+    android:pivotY="50%"
+    android:duration="1000"
+    android:repeatCount="infinite" />
+
+💨 fade.xml
+<?xml version="1.0" encoding="utf-8"?>
+<alpha xmlns:android="http://schemas.android.com/apk/res/android"
+    android:fromAlpha="1.0"
+    android:toAlpha="0.0"
+    android:duration="1000"
+    android:repeatCount="infinite"
+    android:repeatMode="reverse" />
+
+🔍 zoom.xml
+<?xml version="1.0" encoding="utf-8"?>
+<scale xmlns:android="http://schemas.android.com/apk/res/android"
+    android:fromXScale="1.0"
+    android:toXScale="2.0"
+    android:fromYScale="1.0"
+    android:toYScale="2.0"
+    android:pivotX="50%"
+    android:pivotY="50%"
+    android:duration="1000"
+    android:repeatCount="infinite"
+    android:repeatMode="reverse" />
+
+🎬 MainActivity.java
+
+Path: java/com/example/animationapp/MainActivity.java
+
+package com.example.animationapp;
+
+import androidx.appcompat.app.AppCompatActivity;
+import android.os.Bundle;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
+import android.widget.*;
+
+public class MainActivity extends AppCompatActivity {
+
+    Spinner spinner;
+    ImageView imageView;
+
+    String[] animations = {"Rotate", "Fade", "Zoom"};
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        spinner = findViewById(R.id.spinnerAnimations);
+        imageView = findViewById(R.id.imageView);
+
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, animations);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
+
+        spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, android.view.View view, int position, long id) {
+                Animation anim = null;
+                switch (animations[position]) {
+                    case "Rotate":
+                        anim = AnimationUtils.loadAnimation(getApplicationContext(), R.anim.rotate);
+                        break;
+                    case "Fade":
+                        anim = AnimationUtils.loadAnimation(getApplicationContext(), R.anim.fade);
+                        break;
+                    case "Zoom":
+                        anim = AnimationUtils.loadAnimation(getApplicationContext(), R.anim.zoom);
+                        break;
+                }
+                if (anim != null) {
+                    imageView.startAnimation(anim);
+                }
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                // no action
+            }
+        });
+    }
+}
+
+🧠 Notes
+
+Image Resource:
+
+Put an image named dm.png or dm.jpg in
+res/drawable/ folder.
+
+You can use any image, just ensure the filename matches @drawable/dm in XML.
+
+Animation folder:
+
+The folder name must be anim, not animation.
+(Path: res/anim/rotate.xml, etc.)
+
+Rebuild:
+After creating XMLs →
+🧩 Build → Clean Project
+🧩 Build → Rebuild Project
+🧩 Then run the app.

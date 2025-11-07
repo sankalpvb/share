@@ -1,0 +1,207 @@
+Project files & locations
+app/src/main/AndroidManifest.xml
+app/src/main/res/layout/activity_main.xml
+app/src/main/java/com/example/dialerapp/MainActivity.java
+
+1) AndroidManifest.xml
+
+Location: app/src/main/AndroidManifest.xml — make sure package matches your Java package
+
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.dialerapp"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Permission to make direct phone calls -->
+    <uses-permission android:name="android.permission.CALL_PHONE"
+        tools:ignore="PermissionImpliesUnsupportedChromeOsHardware" />
+
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Dialerapp"
+        tools:targetApi="31">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+    </application>
+</manifest>
+
+2) activity_main.xml
+
+Location: app/src/main/res/layout/activity_main.xml — unchanged layout with a small textColor addition for readability
+
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="20dp"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <EditText
+        android:id="@+id/editTextNumber"
+        android:hint="Enter Mobile Number"
+        android:inputType="phone"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="@android:color/black"/>
+
+    <Button
+        android:id="@+id/btnCall"
+        android:text="Make Call"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"/>
+</LinearLayout>
+
+3) MainActivity.java
+
+Location: app/src/main/java/com/example/dialerapp/MainActivity.java
+Copy this full file (uses Activity Result API and safe logic):
+
+package com.example.dialerapp;
+
+import android.Manifest;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.Bundle;
+import android.telephony.PhoneNumberUtils;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.Toast;
+
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
+
+public class MainActivity extends AppCompatActivity {
+
+    private EditText editTextNumber;
+    private Button btnCall;
+
+    // ActivityResult launcher for permission request
+    private ActivityResultLauncher<String> requestCallPermissionLauncher;
+
+    @Override
+    protected void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        editTextNumber = findViewById(R.id.editTextNumber);
+        btnCall = findViewById(R.id.btnCall);
+
+        // Init permission launcher
+        requestCallPermissionLauncher = registerForActivityResult(
+                new ActivityResultContracts.RequestPermission(),
+                isGranted -> {
+                    if (isGranted) {
+                        // Permission granted — make the call
+                        performCall();
+                    } else {
+                        // Permission denied — fallback to ACTION_DIAL
+                        Toast.makeText(MainActivity.this, "Permission denied. Opening dialer instead.", Toast.LENGTH_SHORT).show();
+                        openDialerFallback();
+                    }
+                }
+        );
+
+        btnCall.setOnClickListener(v -> {
+            String number = editTextNumber.getText() == null ? "" : editTextNumber.getText().toString().trim();
+
+            if (number.isEmpty()) {
+                Toast.makeText(MainActivity.this, "Enter a valid phone number", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // Optional: normalize/validate phone number (basic)
+            if (!PhoneNumberUtils.isGlobalPhoneNumber(number)) {
+                Toast.makeText(MainActivity.this, "Please enter a valid phone number format", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // If we already have CALL_PHONE permission, make the call
+            if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CALL_PHONE)
+                    == PackageManager.PERMISSION_GRANTED) {
+                performCall();
+            } else {
+                // Request permission; result will be handled in the launcher
+                requestCallPermissionLauncher.launch(Manifest.permission.CALL_PHONE);
+            }
+        });
+    }
+
+    /**
+     * Attempt to start ACTION_CALL (requires CALL_PHONE permission).
+     * We build the tel: Uri from the EditText value.
+     */
+    private void performCall() {
+        String number = editTextNumber.getText() == null ? "" : editTextNumber.getText().toString().trim();
+        if (number.isEmpty()) {
+            Toast.makeText(this, "Phone number is empty", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String telUri = "tel:" + Uri.encode(number);
+        Intent callIntent = new Intent(Intent.ACTION_CALL);
+        callIntent.setData(Uri.parse(telUri));
+
+        try {
+            startActivity(callIntent);
+        } catch (SecurityException se) {
+            // This should not happen because we check permission, but handle just in case
+            Toast.makeText(this, "CALL_PHONE permission missing. Opening dialer.", Toast.LENGTH_SHORT).show();
+            openDialerFallback();
+        } catch (Exception e) {
+            Toast.makeText(this, "Unable to place call: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /**
+     * Fallback: open the dialer with the number prefilled (no CALL_PHONE permission required).
+     */
+    private void openDialerFallback() {
+        String number = editTextNumber.getText() == null ? "" : editTextNumber.getText().toString().trim();
+        String telUri = "tel:" + Uri.encode(number);
+        Intent dialIntent = new Intent(Intent.ACTION_DIAL);
+        dialIntent.setData(Uri.parse(telUri));
+        try {
+            startActivity(dialIntent);
+        } catch (Exception e) {
+            Toast.makeText(this, "Unable to open dialer: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+}
+
+Notes, tips & common pitfalls
+
+Use ACTION_CALL only if your app truly needs to place calls directly. Users may prefer ACTION_DIAL which doesn't require permission and lets them confirm the call.
+
+If testing on an emulator, direct calls may not work as expected. Test ACTION_DIAL on emulator, and test ACTION_CALL on a real device.
+
+Make sure your package line at the top of MainActivity.java exactly matches the package attribute in AndroidManifest.xml.
+
+If you previously got a package vs path error, ensure MainActivity.java file is located at:
+
+app/src/main/java/com/example/dialerapp/MainActivity.java
+
+
+and its package line is package com.example.dialerapp;
+
+If you still see a crash, copy the Logcat FATAL EXCEPTION stack trace and paste it here — I’ll point to the exact line and fix it.

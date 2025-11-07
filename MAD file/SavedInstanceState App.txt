@@ -1,0 +1,104 @@
+Files to copy into your project
+app/src/main/res/layout/activity_main.xml
+
+File: app/src/main/res/layout/activity_main.xml
+(You already have a good layout; keep it as-is. If needed, here it is.)
+
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <EditText
+        android:id="@+id/editText"
+        android:textSize="20sp"
+        android:gravity="center"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Enter some text" />
+
+    <Button
+        android:id="@+id/button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Save"
+        android:textStyle="bold"
+        android:textSize="20sp"
+        android:layout_below="@id/editText"
+        android:layout_marginTop="16dp" />
+
+</RelativeLayout>
+
+Java (Save / Load with SharedPreferences + Toast)
+
+File: app/src/main/java/com/example/savedinstancestatepractical/MainActivity.java
+
+package com.example.savedinstancestatepractical;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.os.Bundle;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+
+public class MainActivity extends AppCompatActivity {
+    private EditText editText;
+    private Button button;
+    private static final String TEXT_KEY = "saved_text";
+    private static final String PREFS_NAME = "my_prefs";
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        editText = findViewById(R.id.editText);
+        button = findViewById(R.id.button);
+
+        // 1) Load saved text from SharedPreferences (auto-restore on app start)
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        String saved = prefs.getString(TEXT_KEY, null);
+        if (saved != null) {
+            editText.setText(saved);
+            Toast.makeText(this, "Restored saved text", Toast.LENGTH_SHORT).show();
+        }
+
+        // 2) Restore savedInstanceState (for rotation / process death)
+        if (savedInstanceState != null) {
+            String savedStateText = savedInstanceState.getString(TEXT_KEY);
+            if (savedStateText != null) {
+                editText.setText(savedStateText);
+            }
+        }
+
+        // Button click: save to SharedPreferences and show Toast
+        button.setOnClickListener(v -> {
+            String textToSave = editText.getText().toString();
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.putString(TEXT_KEY, textToSave);
+            editor.apply(); // async write
+            Toast.makeText(MainActivity.this, "Text saved", Toast.LENGTH_SHORT).show();
+        });
+    }
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        // Save current text for rotation / temporary state
+        outState.putString(TEXT_KEY, editText.getText().toString());
+    }
+}
+
+
+Notes (Java):
+
+SharedPreferences name: "my_prefs".
+
+Key: "saved_text".
+
+apply() writes asynchronously (fast). Use commit() if you need synchronous write (rarely needed).

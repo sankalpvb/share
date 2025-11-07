@@ -1,0 +1,216 @@
+✅ What to add to your project
+
+Files & paths
+
+app/src/main/res/layout/activity_main.xml       (your XML, unchanged)
+app/src/main/java/com/example/videoplayer/MainActivity.java  (replace with code below)
+app/src/main/res/raw/samplevideo.mp4           (put your video file here)
+
+
+Important: create the res/raw directory (right-click res → New → Android resource directory → Resource type = raw) and add a video file named samplevideo.mp4 (lowercase, no spaces). In code we reference R.raw.samplevideo.
+
+activity_main.xml
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="20dp">
+
+    <TextView
+        android:id="@+id/tvTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Simple Video Player"
+        android:textSize="20sp"
+        android:layout_marginBottom="20dp"/>
+
+    <VideoView
+        android:id="@+id/videoView"
+        android:layout_width="match_parent"
+        android:layout_height="300dp"
+        android:layout_marginBottom="20dp"/>
+
+    <Button
+        android:id="@+id/btnPlay"
+        android:layout_width="200dp"
+        android:layout_height="wrap_content"
+        android:text="Play"
+        android:backgroundTint="@android:color/holo_blue_light"
+        android:textColor="@android:color/black"/>
+
+    <Button
+        android:id="@+id/btnPause"
+        android:layout_width="200dp"
+        android:layout_height="wrap_content"
+        android:text="Pause"
+        android:layout_marginTop="15dp"
+        android:backgroundTint="@android:color/holo_blue_light"
+        android:textColor="@android:color/black"/>
+
+    <Button
+        android:id="@+id/btnStop"
+        android:layout_width="200dp"
+        android:layout_height="wrap_content"
+        android:text="Stop"
+        android:layout_marginTop="15dp"
+        android:backgroundTint="@android:color/holo_blue_light"
+        android:textColor="@android:color/black"/>
+</LinearLayout>
+
+MainActivity.java (improved)
+
+Location: app/src/main/java/com/example/videoplayer/MainActivity.java
+
+package com.example.videoplayer;
+
+import androidx.appcompat.app.AppCompatActivity;
+import android.net.Uri;
+import android.os.Bundle;
+import android.widget.Button;
+import android.widget.MediaController;
+import android.widget.Toast;
+import android.widget.VideoView;
+import android.media.MediaPlayer;
+
+public class MainActivity extends AppCompatActivity {
+
+    private VideoView videoView;
+    private Button btnPlay, btnPause, btnStop;
+    private MediaController mediaController;
+    private boolean isPaused = false;
+    private Uri videoUri;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+		// views
+        videoView = findViewById(R.id.videoView);
+        btnPlay = findViewById(R.id.btnPlay);
+        btnPause = findViewById(R.id.btnPause);
+        btnStop = findViewById(R.id.btnStop);
+
+        // build URI to raw resource: res/raw/samplevideo.mp4
+        videoUri = Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.samplevideo);
+
+        // set URI and media controller
+        videoView.setVideoURI(videoUri);
+        mediaController = new MediaController(this);
+        mediaController.setAnchorView(videoView);
+        videoView.setMediaController(mediaController);
+
+        // listeners for playback events
+        videoView.setOnPreparedListener(mp -> {
+            // optional: adjust UI / volume / seek to position
+            mp.setOnInfoListener((mpInner, what, extra) -> {
+                // You can monitor buffering states etc.
+                return false;
+            });
+            Toast.makeText(MainActivity.this, "Video ready", Toast.LENGTH_SHORT).show();
+        });
+
+        videoView.setOnCompletionListener(mp -> {
+            Toast.makeText(MainActivity.this, "Playback completed", Toast.LENGTH_SHORT).show();
+            isPaused = false;
+            btnPause.setText("Pause");
+            // reset to start so user can play again
+            videoView.seekTo(0);
+        });
+
+        videoView.setOnErrorListener((mp, what, extra) -> {
+            Toast.makeText(MainActivity.this, "Playback error: what=" + what + " extra=" + extra, Toast.LENGTH_LONG).show();
+            return true; // handled
+        });
+
+        // Play
+        btnPlay.setOnClickListener(v -> {
+            try {
+                if (!videoView.isPlaying()) {
+                    videoView.start();
+                    isPaused = false;
+                    btnPause.setText("Pause");
+                    Toast.makeText(MainActivity.this, "Video Playing", Toast.LENGTH_SHORT).show();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                Toast.makeText(MainActivity.this, "Play error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        });
+
+        // Pause / Resume
+        btnPause.setOnClickListener(v -> {
+            try {
+                if (videoView.isPlaying()) {
+                    videoView.pause();
+                    isPaused = true;
+                    btnPause.setText("Resume");
+                    Toast.makeText(MainActivity.this, "Video Paused", Toast.LENGTH_SHORT).show();
+                } else if (isPaused) {
+                    videoView.start();
+                    isPaused = false;
+                    btnPause.setText("Pause");
+                    Toast.makeText(MainActivity.this, "Video Resumed", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(MainActivity.this, "Nothing to pause/resume", Toast.LENGTH_SHORT).show();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                Toast.makeText(MainActivity.this, "Pause/Resume error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        });
+
+        // Stop
+        btnStop.setOnClickListener(v -> {
+            try {
+                if (videoView.isPlaying() || isPaused) {
+                    videoView.stopPlayback();
+                    // reset VideoView to the same URI so it can be played again
+                    videoView.setVideoURI(videoUri);
+                    isPaused = false;
+                    btnPause.setText("Pause");
+                    Toast.makeText(MainActivity.this, "Video Stopped", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(MainActivity.this, "Nothing to stop", Toast.LENGTH_SHORT).show();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                Toast.makeText(MainActivity.this, "Stop error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // pause playback when activity is not visible
+        if (videoView != null && videoView.isPlaying()) {
+            videoView.pause();
+            isPaused = true;
+            btnPause.setText("Resume");
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (videoView != null) {
+            videoView.stopPlayback();
+            videoView = null;
+        }
+        super.onDestroy();
+    }
+}
+
+Troubleshooting checklist (if video doesn’t play)
+
+Video file exists — app/src/main/res/raw/samplevideo.mp4 exactly (lowercase name, no spaces).
+
+Supported codec — use MP4 (H.264 video + AAC audio) for broad compatibility. Other containers/codecs may fail.
+
+Test on a real device — emulators sometimes lack proper codec support.
+
+Check Logcat — if it still fails, run the app, reproduce the problem, open Logcat and search for Playback error or E/MediaPlayer. Paste the FATAL EXCEPTION or error lines here and I’ll debug them.
+
+Large file caution — very large videos may cause memory or buffering issues; try a short clip first.

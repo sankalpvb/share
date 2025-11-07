@@ -1,0 +1,460 @@
+Project file list (paths)
+app/src/main/AndroidManifest.xml
+app/src/main/res/layout/activity_main.xml
+app/src/main/res/layout/user_item.xml
+app/src/main/java/com/example/userregistration/MainActivity.java
+app/src/main/java/com/example/userregistration/User.java
+app/src/main/java/com/example/userregistration/UserAdapter.java
+
+1) AndroidManifest.xml
+
+Location: app/src/main/AndroidManifest.xml — make sure package matches Java files
+
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.userregistration">
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.UserRegistration">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>
+
+2) activity_main.xml
+
+Location: app/src/main/res/layout/activity_main.xml
+
+Note: RecyclerView uses 0dp height + layout_weight="1" so it fills remaining space.
+
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:padding="20dp"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <EditText
+        android:id="@+id/editTextName"
+        android:hint="Enter Name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <EditText
+        android:id="@+id/editTextEmail"
+        android:hint="Enter Email"
+        android:inputType="textEmailAddress"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <EditText
+        android:id="@+id/editTextPassword"
+        android:hint="Enter Password"
+        android:inputType="textPassword"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <Button
+        android:id="@+id/btnRegister"
+        android:text="Register"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"/>
+
+    <TextView
+        android:text="Registered Users:"
+        android:textSize="18sp"
+        android:layout_marginTop="20dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerViewUsers"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"/>
+</LinearLayout>
+
+3) user_item.xml
+
+Location: app/src/main/res/layout/user_item.xml
+(unchanged content but included for completeness)
+
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:padding="10dp"
+    android:background="#EEEEEE"
+    android:layout_margin="5dp"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <TextView
+        android:id="@+id/txtName"
+        android:text="Name"
+        android:textSize="16sp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+
+    <TextView
+        android:id="@+id/txtEmail"
+        android:text="Email"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+
+    <TextView
+        android:id="@+id/txtPassword"
+        android:text="Password"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp">
+
+        <Button
+            android:id="@+id/btnEdit"
+            android:text="Edit"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
+
+        <Button
+            android:id="@+id/btnDelete"
+            android:text="Delete"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"/>
+    </LinearLayout>
+</LinearLayout>
+
+4) User.java
+
+Location: app/src/main/java/com/example/userregistration/User.java
+
+Lightweight model with safe parsing (trims values).
+
+package com.example.userregistration;
+
+public class User {
+    public String name;
+    public String email;
+    public String password;
+
+    public User(String name, String email, String password) {
+        this.name = name == null ? "" : name;
+        this.email = email == null ? "" : email;
+        this.password = password == null ? "" : password;
+    }
+
+    @Override
+    public String toString() {
+        // Use comma as separator; escape commas if you plan to allow them
+        return name + "," + email + "," + password;
+    }
+
+    public static User fromString(String line) {
+        if (line == null) return null;
+        String[] parts = line.split(",", -1); // keep empty parts
+        if (parts.length >= 3) {
+            // If there are extra commas, merge the extras into the last field
+            String name = parts[0].trim();
+            String email = parts[1].trim();
+            // join remaining parts for password (in case of extra commas)
+            StringBuilder pass = new StringBuilder();
+            for (int i = 2; i < parts.length; i++) {
+                if (i > 2) pass.append(",");
+                pass.append(parts[i]);
+            }
+            return new User(name, email, pass.toString().trim());
+        }
+        return null;
+    }
+}
+
+5) UserAdapter.java
+
+Location: app/src/main/java/com/example/userregistration/UserAdapter.java
+
+Adapter now passes position with both callbacks.
+
+package com.example.userregistration;
+
+import android.app.AlertDialog;
+import android.content.Context;
+import android.view.*;
+import android.widget.*;
+import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.RecyclerView;
+import java.util.ArrayList;
+
+public class UserAdapter extends RecyclerView.Adapter<UserAdapter.UserViewHolder> {
+
+    Context context;
+    ArrayList<User> userList;
+    UserActionListener listener;
+
+    public interface UserActionListener {
+        void onDelete(User user, int position);
+        void onEdit(User user, int position);
+    }
+
+    public UserAdapter(Context context, ArrayList<User> userList, UserActionListener listener) {
+        this.context = context;
+        this.userList = userList;
+        this.listener = listener;
+    }
+
+    @NonNull
+    @Override
+    public UserViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        View v = LayoutInflater.from(context).inflate(R.layout.user_item, parent, false);
+        return new UserViewHolder(v);
+    }
+
+    @Override
+    public void onBindViewHolder(@NonNull UserViewHolder holder, int position) {
+        User user = userList.get(position);
+        holder.txtName.setText(user.name);
+        holder.txtEmail.setText(user.email);
+        holder.txtPassword.setText(user.password);
+
+        holder.btnDelete.setOnClickListener(v -> {
+            new AlertDialog.Builder(context)
+                    .setTitle("Delete User")
+                    .setMessage("Are you sure you want to delete this user?")
+                    .setPositiveButton("Yes", (dialog, which) -> {
+                        listener.onDelete(user, position);
+                    })
+                    .setNegativeButton("No", null)
+                    .show();
+        });
+
+        holder.btnEdit.setOnClickListener(v -> {
+            listener.onEdit(user, position);
+        });
+    }
+
+    @Override
+    public int getItemCount() {
+        return userList.size();
+    }
+
+    public static class UserViewHolder extends RecyclerView.ViewHolder {
+        TextView txtName, txtEmail, txtPassword;
+        Button btnDelete, btnEdit;
+
+        public UserViewHolder(@NonNull View itemView) {
+            super(itemView);
+            txtName = itemView.findViewById(R.id.txtName);
+            txtEmail = itemView.findViewById(R.id.txtEmail);
+            txtPassword = itemView.findViewById(R.id.txtPassword);
+            btnDelete = itemView.findViewById(R.id.btnDelete);
+            btnEdit = itemView.findViewById(R.id.btnEdit);
+        }
+    }
+}
+
+6) MainActivity.java
+
+Location: app/src/main/java/com/example/userregistration/MainActivity.java
+
+Core improvements:
+
+edit flow: editingPosition tracks which item is being edited.
+
+save button updates when editing, resets properly.
+
+safer file IO (flush/close in finally).
+
+keeps UI consistent with adapter notifications.
+
+package com.example.userregistration;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
+import android.os.Bundle;
+import android.view.View;
+import android.widget.*;
+import java.io.*;
+import java.util.ArrayList;
+
+public class MainActivity extends AppCompatActivity implements UserAdapter.UserActionListener {
+
+    EditText editTextName, editTextEmail, editTextPassword;
+    Button btnRegister;
+    RecyclerView recyclerViewUsers;
+
+    String fileName = "user_data.txt";
+    ArrayList<User> usersList;
+    UserAdapter adapter;
+
+    // -1 means no edit in progress; otherwise index being edited
+    private int editingPosition = -1;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        editTextName = findViewById(R.id.editTextName);
+        editTextEmail = findViewById(R.id.editTextEmail);
+        editTextPassword = findViewById(R.id.editTextPassword);
+        btnRegister = findViewById(R.id.btnRegister);
+        recyclerViewUsers = findViewById(R.id.recyclerViewUsers);
+
+        usersList = new ArrayList<>();
+        adapter = new UserAdapter(this, usersList, this);
+        recyclerViewUsers.setLayoutManager(new LinearLayoutManager(this));
+        recyclerViewUsers.setAdapter(adapter);
+
+        loadUsersFromFile();
+
+        btnRegister.setOnClickListener(v -> saveOrUpdateUser());
+    }
+
+    private void saveOrUpdateUser() {
+        String name = editTextName.getText().toString().trim();
+        String email = editTextEmail.getText().toString().trim();
+        String password = editTextPassword.getText().toString().trim();
+
+        if (name.isEmpty() || email.isEmpty() || password.isEmpty()) {
+            Toast.makeText(this, "Please fill all fields", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (editingPosition >= 0 && editingPosition < usersList.size()) {
+            // Update existing user
+            User u = usersList.get(editingPosition);
+            u.name = name;
+            u.email = email;
+            u.password = password;
+            adapter.notifyItemChanged(editingPosition);
+            editingPosition = -1;
+            btnRegister.setText("Register");
+            Toast.makeText(this, "User updated!", Toast.LENGTH_SHORT).show();
+        } else {
+            // Add new user
+            User newUser = new User(name, email, password);
+            usersList.add(newUser);
+            adapter.notifyItemInserted(usersList.size() - 1);
+            Toast.makeText(this, "User registered successfully!", Toast.LENGTH_SHORT).show();
+        }
+
+        saveAllUsersToFile();
+
+        editTextName.setText("");
+        editTextEmail.setText("");
+        editTextPassword.setText("");
+    }
+
+    private void saveAllUsersToFile() {
+        FileOutputStream fos = null;
+        OutputStreamWriter osw = null;
+        BufferedWriter bw = null;
+        try {
+            fos = openFileOutput(fileName, MODE_PRIVATE);
+            osw = new OutputStreamWriter(fos);
+            bw = new BufferedWriter(osw);
+            for (User u : usersList) {
+                bw.write(u.toString());
+                bw.newLine();
+            }
+            bw.flush();
+        } catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Error saving file: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        } finally {
+            try { if (bw != null) bw.close(); } catch (Exception ignored) {}
+            try { if (osw != null) osw.close(); } catch (Exception ignored) {}
+            try { if (fos != null) fos.close(); } catch (Exception ignored) {}
+        }
+    }
+
+    private void loadUsersFromFile() {
+        usersList.clear();
+        FileInputStream fis = null;
+        InputStreamReader isr = null;
+        BufferedReader br = null;
+        try {
+            fis = openFileInput(fileName);
+            isr = new InputStreamReader(fis);
+            br = new BufferedReader(isr);
+            String line;
+            while ((line = br.readLine()) != null) {
+                User user = User.fromString(line);
+                if (user != null) usersList.add(user);
+            }
+            adapter.notifyDataSetChanged();
+        } catch (FileNotFoundException e) {
+            // ignore — first run
+        } catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Error reading file: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        } finally {
+            try { if (br != null) br.close(); } catch (Exception ignored) {}
+            try { if (isr != null) isr.close(); } catch (Exception ignored) {}
+            try { if (fis != null) fis.close(); } catch (Exception ignored) {}
+        }
+    }
+
+    // Adapter callbacks
+    @Override
+    public void onDelete(User user, int position) {
+        if (position >= 0 && position < usersList.size()) {
+            usersList.remove(position);
+            adapter.notifyItemRemoved(position);
+            saveAllUsersToFile();
+            Toast.makeText(this, "User deleted", Toast.LENGTH_SHORT).show();
+            // If we were editing this user, cancel edit
+            if (editingPosition == position) {
+                editingPosition = -1;
+                btnRegister.setText("Register");
+                editTextName.setText("");
+                editTextEmail.setText("");
+                editTextPassword.setText("");
+            }
+        }
+    }
+
+    @Override
+    public void onEdit(User user, int position) {
+        if (position >= 0 && position < usersList.size()) {
+            // Fill fields for editing
+            editTextName.setText(user.name);
+            editTextEmail.setText(user.email);
+            editTextPassword.setText(user.password);
+            editingPosition = position;
+            btnRegister.setText("Update");
+            // Scroll RecyclerView to the editing position
+            recyclerViewUsers.scrollToPosition(position);
+        }
+    }
+}
+
+Quick checklist — to run successfully
+
+Paste files into the exact paths above.
+
+Ensure Java package com.example.userregistration matches file path (folder structure .../com/example/userregistration/).
+
+Build → Clean Project → Rebuild.
+
+Run on device/emulator.
+
+Register users, edit/delete them — data persists between runs.

@@ -1,0 +1,184 @@
+Project file list / locations
+app/src/main/AndroidManifest.xml
+app/src/main/res/layout/activity_main.xml
+app/src/main/res/layout/tab1.xml
+app/src/main/res/layout/tab2.xml
+app/src/main/res/layout/tab3.xml
+app/src/main/java/com/example/tabhost/MainActivity.java
+
+1) AndroidManifest.xml
+
+Location: app/src/main/AndroidManifest.xml — make sure the package matches the Java files
+
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.tabhost">
+
+    <application
+        android:allowBackup="true"
+        android:label="TabHostApp"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+        <activity android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>
+
+2) activity_main.xml
+
+Location: app/src/main/res/layout/activity_main.xml
+(kept your TabHost approach; small padding adjustments)
+
+<?xml version="1.0" encoding="utf-8"?>
+<TabHost xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/tabhost"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingTop="20dp">
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="10dp">
+
+        <TabWidget
+            android:id="@android:id/tabs"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <FrameLayout
+            android:id="@android:id/tabcontent"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:paddingTop="10dp">
+
+            <!-- Each included layout MUST contain a view with the id below -->
+            <include layout="@layout/tab1" />
+            <include layout="@layout/tab2" />
+            <include layout="@layout/tab3" />
+
+        </FrameLayout>
+    </LinearLayout>
+</TabHost>
+
+3) tab1.xml
+
+Location: app/src/main/res/layout/tab1.xml
+
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/tab1"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <TextView
+        android:text="You're viewing Tab 1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+</LinearLayout>
+
+4) tab2.xml
+
+Location: app/src/main/res/layout/tab2.xml
+
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/tab2"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <TextView
+        android:text="This is Tab 2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+</LinearLayout>
+
+5) tab3.xml
+
+Location: app/src/main/res/layout/tab3.xml
+
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/tab3"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <TextView
+        android:text="This is Tab 3"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+</LinearLayout>
+
+6) MainActivity.java
+
+Location: app/src/main/java/com/example/tabhost/MainActivity.java
+(keeps simple TabHost usage — works with included layouts)
+
+package com.example.tabhost;
+
+import android.os.Bundle;
+import android.widget.TabHost;
+import androidx.appcompat.app.AppCompatActivity;
+
+public class MainActivity extends AppCompatActivity {
+
+    TabHost tabHost;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+		// Find the TabHost and set it up
+        tabHost = findViewById(android.R.id.tabhost);
+        tabHost.setup();
+
+        // Tab 1
+        TabHost.TabSpec spec1 = tabHost.newTabSpec("tab1");
+        spec1.setContent(R.id.tab1);
+        spec1.setIndicator("Home");
+        tabHost.addTab(spec1);
+
+        // Tab 2
+        TabHost.TabSpec spec2 = tabHost.newTabSpec("tab2");
+        spec2.setContent(R.id.tab2);
+        spec2.setIndicator("Profile");
+        tabHost.addTab(spec2);
+
+        // Tab 3
+        TabHost.TabSpec spec3 = tabHost.newTabSpec("tab3");
+        spec3.setContent(R.id.tab3);
+        spec3.setIndicator("Settings");
+        tabHost.addTab(spec3);
+
+        // Optional: set default tab index (0 = first)
+        tabHost.setCurrentTab(0);
+    }
+}
+
+Notes & troubleshooting
+
+IDs must match: The setContent(R.id.tab1) refers to a view with that id present inside the @android:id/tabcontent container. Including @layout/tab1 where the root has android:id="@+id/tab1" satisfies this. If you rename ids, update the Java accordingly.
+
+Layout heights: included layouts use match_parent — this is fine; they are swapped inside the FrameLayout.
+
+TabHost is old school: TabHost works well for simple apps. On modern apps prefer TabLayout + ViewPager2 or FragmentTabHost if you want fragment lifecycle management. Tell me if you want a TabLayout + ViewPager2 example — I’ll convert it.
+
+If you see a crash: paste the Logcat FATAL EXCEPTION and I’ll point to the exact line to fix.
+
+Styling: If you want icons on tabs or custom indicators, replace setIndicator("Home") with setIndicator(view) where view is an inflated layout (ImageView + TextView).
