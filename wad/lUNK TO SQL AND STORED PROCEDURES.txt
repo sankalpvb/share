@@ -1,0 +1,256 @@
+✅ Rewrite the entire Practical 16 (LINQ-to-SQL + Stored Procedures)
+✅ Use SAME configuration as your ASP.NET project uses now
+➡ Meaning: SQL Server database with .master page + namespace = Praactical_Exam
+➡ NOT MySQL (because LINQ-to-SQL does NOT support MySQL)
+➡ LINQ-to-SQL only works with Microsoft SQL Server databases.
+
+So for Practical 16, you MUST use SQL Server, not MySQL.
+
+I will now give you a FULL WORKING PRACTICAL:
+
+⭐ PRACTICAL 16 – LINQ to SQL + Stored Procedures (ASP.NET WebForms + SQL Server)
+
+Below is the complete final code, ready to be used in your project.
+
+🔷 1. Database Creation Script (SQL Server)
+
+Run this in SQL Server Management Studio or LocalDB Query Window:
+
+CREATE DATABASE train_master;
+GO
+USE train_master;
+GO
+
+CREATE TABLE train_info (
+    train_id INT IDENTITY(1,1) PRIMARY KEY,
+    train_name NVARCHAR(100),
+    train_type NVARCHAR(50),
+    arrival_time TIME,
+    departure_time TIME,
+    start_location NVARCHAR(100),
+    end_location NVARCHAR(100)
+);
+GO
+
+-- Insert Procedure
+CREATE PROC sp_InsertTrain
+ @train_name NVARCHAR(100), @train_type NVARCHAR(50),
+ @arrival_time TIME, @departure_time TIME,
+ @start_location NVARCHAR(100), @end_location NVARCHAR(100)
+AS
+INSERT INTO train_info VALUES(@train_name,@train_type,@arrival_time,@departure_time,@start_location,@end_location);
+GO
+
+-- Update Procedure
+CREATE PROC sp_UpdateTrain
+ @train_id INT, @train_name NVARCHAR(100), @train_type NVARCHAR(50),
+ @arrival_time TIME, @departure_time TIME,
+ @start_location NVARCHAR(100), @end_location NVARCHAR(100)
+AS
+UPDATE train_info SET train_name=@train_name, train_type=@train_type,
+ arrival_time=@arrival_time, departure_time=@departure_time,
+ start_location=@start_location, end_location=@end_location
+WHERE train_id=@train_id;
+GO
+
+-- Delete Procedure
+CREATE PROC sp_DeleteTrain @train_id INT
+AS DELETE FROM train_info WHERE train_id=@train_id;
+GO
+
+-- View All Procedure
+CREATE PROC sp_GetTrains AS SELECT * FROM train_info;
+GO
+
+-- Search Procedure
+CREATE PROC sp_SearchTrain @keyword NVARCHAR(100)
+AS
+SELECT * FROM train_info 
+WHERE train_name LIKE '%'+@keyword+'%' OR train_type LIKE '%'+@keyword+'%';
+GO
+
+🔷 2. Create the LINQ-to-SQL Class
+
+In Visual Studio:
+
+Right-click Project  
+→ Add New Item  
+→ LINQ to SQL Classes (TrainData.dbml)
+
+
+Inside Server Explorer:
+
+Connect to SQL Server
+
+Expand train_master → Tables → drag train_info to the .dbml designer
+
+Expand Stored Procedures → drag all 5 stored procedures:
+
+sp_InsertTrain  
+sp_UpdateTrain  
+sp_DeleteTrain  
+sp_GetTrains  
+sp_SearchTrain
+
+
+This auto-generates the class:
+
+TrainDataDataContext
+
+🔷 3. Web.config Connection String (SQL Server)
+
+Add this:
+
+<connectionStrings>
+  <add name="TrainDataConnectionString"
+       connectionString="Data Source=YOUR_SERVER_NAME;Initial Catalog=train_master;Integrated Security=True;"
+       providerName="System.Data.SqlClient" />
+</connectionStrings>
+
+
+Replace YOUR_SERVER_NAME:
+
+LocalDB → (localdb)\MSSQLLocalDB
+
+SQL Express → .\SQLEXPRESS
+
+Full SQL → machine name
+
+🔷 4. ASP.NET WebForm (traindata.aspx)
+<%@ Page Language="C#" Title="Train Data"
+    MasterPageFile="~/Site.Master" AutoEventWireup="true"
+    CodeBehind="traindata.aspx.cs" Inherits="Praactical_Exam.traindata" %>
+
+<asp:Content ID="Content1" ContentPlaceHolderID="MainContent" runat="server">
+
+Train ID: <asp:TextBox ID="txtID" runat="server" ReadOnly="true" /><br />
+Name: <asp:TextBox ID="txtName" runat="server" /><br />
+Type: <asp:TextBox ID="txtType" runat="server" /><br />
+Arrival: <asp:TextBox ID="txtArrival" runat="server" /><br />
+Departure: <asp:TextBox ID="txtDeparture" runat="server" /><br />
+Start: <asp:TextBox ID="txtStart" runat="server" /><br />
+End: <asp:TextBox ID="txtEnd" runat="server" /><br />
+
+<asp:Button ID="btnInsert" runat="server" Text="Insert" OnClick="btnInsert_Click" />
+<asp:Button ID="btnUpdate" runat="server" Text="Update" OnClick="btnUpdate_Click" />
+<asp:Button ID="btnDelete" runat="server" Text="Delete" OnClick="btnDelete_Click" />
+
+<br /><br/>
+
+Search: <asp:TextBox ID="txtSearch" runat="server" />
+<asp:Button ID="btnSearch" runat="server" Text="Search" OnClick="btnSearch_Click" />
+<asp:Button ID="btnShow" runat="server" Text="Show All" OnClick="btnShow_Click" />
+
+<br /><br/>
+<asp:GridView ID="GridView1" runat="server" AutoGenerateColumns="true" />
+
+</asp:Content>
+
+🔷 5. ASP.NET Code-behind (traindata.aspx.cs)
+using System;
+using Praactical_Exam;  // Namespace for .dbml
+
+namespace Praactical_Exam
+{
+    public partial class traindata : System.Web.UI.Page
+    {
+        TrainDataDataContext db = new TrainDataDataContext();
+
+        protected void Page_Load(object sender, EventArgs e)
+        {
+            if (!IsPostBack)
+                ShowAll();
+        }
+
+        void ShowAll()
+        {
+            GridView1.DataSource = db.sp_GetTrains();
+            GridView1.DataBind();
+        }
+
+        protected void btnInsert_Click(object sender, EventArgs e)
+        {
+            db.sp_InsertTrain(
+                txtName.Text,
+                txtType.Text,
+                TimeSpan.Parse(txtArrival.Text),
+                TimeSpan.Parse(txtDeparture.Text),
+                txtStart.Text,
+                txtEnd.Text
+            );
+
+            ShowAll();
+        }
+
+        protected void btnUpdate_Click(object sender, EventArgs e)
+        {
+            db.sp_UpdateTrain(
+                int.Parse(txtID.Text),
+                txtName.Text,
+                txtType.Text,
+                TimeSpan.Parse(txtArrival.Text),
+                TimeSpan.Parse(txtDeparture.Text),
+                txtStart.Text,
+                txtEnd.Text
+            );
+
+            ShowAll();
+        }
+
+        protected void btnDelete_Click(object sender, EventArgs e)
+        {
+            db.sp_DeleteTrain(int.Parse(txtID.Text));
+            ShowAll();
+        }
+
+        protected void btnSearch_Click(object sender, EventArgs e)
+        {
+            GridView1.DataSource = db.sp_SearchTrain(txtSearch.Text);
+            GridView1.DataBind();
+        }
+
+        protected void btnShow_Click(object sender, EventArgs e)
+        {
+            ShowAll();
+        }
+    }
+}
+
+🔷 6. Designer File (traindata.aspx.designer.cs)
+namespace Praactical_Exam
+{
+    public partial class traindata
+    {
+        protected global::System.Web.UI.WebControls.TextBox txtID;
+        protected global::System.Web.UI.WebControls.TextBox txtName;
+        protected global::System.Web.UI.WebControls.TextBox txtType;
+        protected global::System.Web.UI.WebControls.TextBox txtArrival;
+        protected global::System.Web.UI.WebControls.TextBox txtDeparture;
+        protected global::System.Web.UI.WebControls.TextBox txtStart;
+        protected global::System.Web.UI.WebControls.TextBox txtEnd;
+
+        protected global::System.Web.UI.WebControls.Button btnInsert;
+        protected global::System.Web.UI.WebControls.Button btnUpdate;
+        protected global::System.Web.UI.WebControls.Button btnDelete;
+
+        protected global::System.Web.UI.WebControls.TextBox txtSearch;
+        protected global::System.Web.UI.WebControls.Button btnSearch;
+        protected global::System.Web.UI.WebControls.Button btnShow;
+
+        protected global::System.Web.UI.WebControls.GridView GridView1;
+    }
+}
+
+✔ Your Practical 16 Includes:
+
+Database Creation
+
+Table + Stored Procedures
+
+LINQ to SQL Class
+
+ASP.NET WebForm UI
+
+Insert / Update / Delete / Search / View All
+
+Works with your existing master page, namespace, project structure

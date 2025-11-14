@@ -1,0 +1,281 @@
+⭐ Practical 13 – CRUD Operations using ADO.NET (MySQL + ASP.NET WebForms)
+
+Using MySQL Workbench + MySql.Data ADO.NET Provider
+
+🔷 1. Installing & Setting up MySQL
+
+Download & install MySQL Server + MySQL Workbench
+https://dev.mysql.com/downloads/
+
+During installation, set a root password (remember it).
+
+Open MySQL Workbench → create a connection to:
+
+Hostname : localhost  
+Port     : 3306  
+User     : root  
+Password : (your password)
+
+🔷 2. Creating the Database
+
+In MySQL Workbench → open a SQL Query tab → run:
+
+CREATE DATABASE studentdb;
+USE studentdb;
+
+🔷 3. Creating the Table
+
+Run this SQL script:
+
+CREATE TABLE info (
+  Id INT AUTO_INCREMENT PRIMARY KEY,
+  Name VARCHAR(100) NOT NULL,
+  Password VARCHAR(100) NOT NULL
+);
+
+
+Insert sample data (optional):
+
+INSERT INTO info (Name, Password) VALUES 
+('Alice', '1234'),
+('Bob', 'abcd');
+
+🔷 4. Add MySQL ADO.NET Provider (Visual Studio)
+
+Open Package Manager Console:
+
+Install-Package MySql.Data
+
+
+Or:
+Right-click Project → Manage NuGet Packages → search MySql.Data → Install.
+
+This enables:
+
+using MySql.Data.MySqlClient;
+
+🔷 5. Connection String (Web.config)
+
+Add this inside <configuration>:
+
+<connectionStrings>
+  <add name="ConnectionString"
+       connectionString="Server=localhost;Database=studentdb;Uid=root;Pwd=YOUR_PASSWORD;Pooling=false;"
+       providerName="MySql.Data.MySqlClient" />
+</connectionStrings>
+
+
+(Replace YOUR_PASSWORD with your MySQL password.)
+
+🔷 6. ASP.NET UI (Default.aspx)
+
+Connected to your Site.Master.
+
+<%@ Page Language="C#" Title="CRUD Operations using ADO.NET"
+    MasterPageFile="~/Site.Master" AutoEventWireup="true"
+    CodeBehind="Default.aspx.cs" Inherits="Praactical_Exam.Default" %>
+
+<asp:Content ID="Content1" ContentPlaceHolderID="MainContent" runat="server">
+
+    <h2>Student CRUD Operations</h2>
+
+    <table>
+        <tr>
+            <td>Enter ID</td>
+            <td><asp:TextBox ID="txtId" runat="server"></asp:TextBox></td>
+        </tr>
+        <tr>
+            <td>Enter Name</td>
+            <td><asp:TextBox ID="txtName" runat="server"></asp:TextBox></td>
+        </tr>
+        <tr>
+            <td>Enter Password</td>
+            <td><asp:TextBox ID="txtPassword" runat="server" TextMode="Password"></asp:TextBox></td>
+        </tr>
+        <tr>
+            <td></td>
+            <td>
+                <asp:Button ID="btnInsert" runat="server" Text="Insert" OnClick="btnInsert_Click" />
+                <asp:Button ID="btnFind" runat="server" Text="Find" OnClick="btnFind_Click" />
+                <asp:Button ID="btnUpdate" runat="server" Text="Update" OnClick="btnUpdate_Click" />
+                <asp:Button ID="btnDelete" runat="server" Text="Delete" OnClick="btnDelete_Click" />
+            </td>
+        </tr>
+    </table>
+
+    <hr />
+
+    <asp:GridView ID="GridView1" runat="server" AutoGenerateColumns="true"
+                  CellPadding="5" BorderWidth="1" />
+
+</asp:Content>
+
+🔷 7. Code-behind (Default.aspx.cs)
+
+Full MySQL CRUD logic.
+
+using System;
+using System.Data;
+using System.Web.UI;
+using MySql.Data.MySqlClient;
+using System.Configuration;
+
+namespace Praactical_Exam
+{
+    public partial class Default : Page
+    {
+        string cs;
+
+        protected void Page_Init(object sender, EventArgs e)
+        {
+            cs = ConfigurationManager.ConnectionStrings["ConnectionString"]?.ConnectionString;
+
+            if (string.IsNullOrWhiteSpace(cs))
+                throw new Exception("ConnectionString is missing in Web.config!");
+        }
+
+        protected void Page_Load(object sender, EventArgs e)
+        {
+            if (!IsPostBack)
+                LoadData();
+        }
+
+        // View all records
+        private void LoadData()
+        {
+            using (var conn = new MySqlConnection(cs))
+            {
+                var da = new MySqlDataAdapter("SELECT * FROM info", conn);
+                var dt = new DataTable();
+                da.Fill(dt);
+                GridView1.DataSource = dt;
+                GridView1.DataBind();
+            }
+        }
+
+        // INSERT
+        protected void btnInsert_Click(object sender, EventArgs e)
+        {
+            using (var conn = new MySqlConnection(cs))
+            {
+                string sql = "INSERT INTO info (Name, Password) VALUES (@Name, @Password)";
+                using (var cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@Name", txtName.Text.Trim());
+                    cmd.Parameters.AddWithValue("@Password", txtPassword.Text.Trim());
+                    conn.Open();
+                    cmd.ExecuteNonQuery();
+                }
+            }
+
+            Clear();
+            LoadData();
+            alert("Record Inserted");
+        }
+
+        // FIND
+        protected void btnFind_Click(object sender, EventArgs e)
+        {
+            using (var conn = new MySqlConnection(cs))
+            {
+                string sql = "SELECT * FROM info WHERE Id=@Id";
+                using (var cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@Id", Convert.ToInt32(txtId.Text.Trim()));
+                    conn.Open();
+
+                    using (var dr = cmd.ExecuteReader())
+                    {
+                        if (dr.Read())
+                        {
+                            txtName.Text = dr["Name"].ToString();
+                            txtPassword.Text = dr["Password"].ToString();
+                        }
+                        else
+                            alert("Record Not Found");
+                    }
+                }
+            }
+        }
+
+        // UPDATE
+        protected void btnUpdate_Click(object sender, EventArgs e)
+        {
+            using (var conn = new MySqlConnection(cs))
+            {
+                string sql = "UPDATE info SET Name=@Name, Password=@Password WHERE Id=@Id";
+                using (var cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@Id", Convert.ToInt32(txtId.Text.Trim()));
+                    cmd.Parameters.AddWithValue("@Name", txtName.Text.Trim());
+                    cmd.Parameters.AddWithValue("@Password", txtPassword.Text.Trim());
+                    conn.Open();
+                    cmd.ExecuteNonQuery();
+                }
+            }
+
+            Clear();
+            LoadData();
+            alert("Record Updated");
+        }
+
+        // DELETE
+        protected void btnDelete_Click(object sender, EventArgs e)
+        {
+            using (var conn = new MySqlConnection(cs))
+            {
+                string sql = "DELETE FROM info WHERE Id=@Id";
+                using (var cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@Id", Convert.ToInt32(txtId.Text.Trim()));
+                    conn.Open();
+                    cmd.ExecuteNonQuery();
+                }
+            }
+
+            Clear();
+            LoadData();
+            alert("Record Deleted");
+        }
+
+        private void Clear()
+        {
+            txtId.Text = "";
+            txtName.Text = "";
+            txtPassword.Text = "";
+        }
+
+        private void alert(string msg)
+        {
+            ClientScript.RegisterStartupScript(this.GetType(), "msg", $"alert('{msg}');", true);
+        }
+    }
+}
+
+🔷 8. Designer File (Default.aspx.designer.cs)
+namespace Praactical_Exam
+{
+    public partial class Default
+    {
+        protected global::System.Web.UI.WebControls.TextBox txtId;
+        protected global::System.Web.UI.WebControls.TextBox txtName;
+        protected global::System.Web.UI.WebControls.TextBox txtPassword;
+        protected global::System.Web.UI.WebControls.Button btnInsert;
+        protected global::System.Web.UI.WebControls.Button btnFind;
+        protected global::System.Web.UI.WebControls.Button btnUpdate;
+        protected global::System.Web.UI.WebControls.Button btnDelete;
+        protected global::System.Web.UI.WebControls.GridView GridView1;
+    }
+}
+
+🔷 9. Output
+
+Your application now supports:
+
+✔ Insert
+✔ Update
+✔ Delete
+✔ Find
+✔ View All Records
+
+All using MySQL, not SQL Server.

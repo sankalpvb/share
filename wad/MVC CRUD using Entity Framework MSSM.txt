@@ -1,0 +1,239 @@
+FINAL VERSION — ASP.NET MVC CRUD using Entity Framework (SQL Server)
+🔷 1. Database (SQL Server)
+
+Run this in SSMS / LocalDB:
+
+CREATE DATABASE book_master;
+GO
+USE book_master;
+GO
+
+CREATE TABLE book_info (
+    book_id INT IDENTITY(1,1) PRIMARY KEY,
+    book_name NVARCHAR(100),
+    author NVARCHAR(100),
+    price DECIMAL(10,2)
+);
+
+🔷 2. Web.config — Connection String
+
+Add inside <configuration>:
+
+<connectionStrings>
+  <add name="BookDBContext"
+       connectionString="Data Source=(localdb)\MSSQLLocalDB;Initial Catalog=book_master;Integrated Security=True"
+       providerName="System.Data.SqlClient" />
+</connectionStrings>
+
+
+✔ Works for all MVC EF projects
+✔ No need for MySQL connector
+
+🔷 3. Model (Book.cs)
+using System.ComponentModel.DataAnnotations;
+
+public class Book
+{
+    [Key]
+    public int book_id { get; set; }
+
+    [Required(ErrorMessage = "Book name is required")]
+    public string book_name { get; set; }
+
+    [Required(ErrorMessage = "Author is required")]
+    public string author { get; set; }
+
+    [Range(1, 9999, ErrorMessage = "Enter valid price")]
+    public decimal price { get; set; }
+}
+
+🔷 4. DbContext (BookDBContext.cs)
+
+⚠ This was missing in your code — required for EF to work.
+
+Create file: BookDBContext.cs
+
+using System.Data.Entity;
+
+public class BookDBContext : DbContext
+{
+    public BookDBContext() : base("BookDBContext")
+    {
+    }
+
+    public DbSet<Book> Books { get; set; }
+}
+
+🔷 5. Controller (BookController.cs)
+
+Fully working CRUD:
+
+using System.Linq;
+using System.Web.Mvc;
+
+public class BookController : Controller
+{
+    BookDBContext db = new BookDBContext();
+
+    // View All
+    public ActionResult Index()
+    {
+        return View(db.Books.ToList());
+    }
+
+    // Insert
+    public ActionResult Create()
+    {
+        return View();
+    }
+
+    [HttpPost]
+    public ActionResult Create(Book b)
+    {
+        if (ModelState.IsValid)
+        {
+            db.Books.Add(b);
+            db.SaveChanges();
+            return RedirectToAction("Index");
+        }
+        return View(b);
+    }
+
+    // Search
+    public ActionResult Search(string name)
+    {
+        var result = db.Books
+            .Where(x => x.book_name.Contains(name))
+            .ToList();
+        return View("Index", result);
+    }
+
+    // Edit Get
+    public ActionResult Edit(int id)
+    {
+        var book = db.Books.Find(id);
+        return View(book);
+    }
+
+    // Edit Post
+    [HttpPost]
+    public ActionResult Edit(Book b)
+    {
+        if (ModelState.IsValid)
+        {
+            db.Entry(b).State = System.Data.Entity.EntityState.Modified;
+            db.SaveChanges();
+            return RedirectToAction("Index");
+        }
+        return View(b);
+    }
+
+    // Delete
+    public ActionResult Delete(int id)
+    {
+        var b = db.Books.Find(id);
+        db.Books.Remove(b);
+        db.SaveChanges();
+        return RedirectToAction("Index");
+    }
+}
+
+🔷 6. View — Index.cshtml
+@model IEnumerable<Book>
+
+<h2>Book List</h2>
+
+<form method="get" action="/Book/Search">
+    <input type="text" name="name" placeholder="Search by name" />
+    <input type="submit" value="Search" />
+</form>
+
+<table border="1" cellpadding="5">
+    <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Author</th>
+        <th>Price</th>
+        <th>Action</th>
+    </tr>
+
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>@item.book_id</td>
+            <td>@item.book_name</td>
+            <td>@item.author</td>
+            <td>@item.price</td>
+            <td>
+                <a href="/Book/Edit/@item.book_id">Edit</a> |
+                <a href="/Book/Delete/@item.book_id">Delete</a>
+            </td>
+        </tr>
+    }
+</table>
+
+<br />
+<a href="/Book/Create">Add New Book</a>
+
+🔷 7. View — Create.cshtml
+@model Book
+
+<h2>Add New Book</h2>
+
+@using (Html.BeginForm())
+{
+    @Html.LabelFor(m => m.book_name)
+    @Html.TextBoxFor(m => m.book_name)
+    @Html.ValidationMessageFor(m => m.book_name)
+    <br /><br />
+
+    @Html.LabelFor(m => m.author)
+    @Html.TextBoxFor(m => m.author)
+    @Html.ValidationMessageFor(m => m.author)
+    <br /><br />
+
+    @Html.LabelFor(m => m.price)
+    @Html.TextBoxFor(m => m.price)
+    @Html.ValidationMessageFor(m => m.price)
+    <br /><br />
+
+    <input type="submit" value="Save" />
+}
+
+🔷 8. View — Edit.cshtml
+@model Book
+
+<h2>Edit Book</h2>
+
+@using (Html.BeginForm())
+{
+    @Html.HiddenFor(m => m.book_id)
+
+    @Html.LabelFor(m => m.book_name)
+    @Html.TextBoxFor(m => m.book_name)
+    @Html.ValidationMessageFor(m => m.book_name)
+    <br /><br />
+
+    @Html.LabelFor(m => m.author)
+    @Html.TextBoxFor(m => m.author)
+    @Html.ValidationMessageFor(m => m.author)
+    <br /><br />
+
+    @Html.LabelFor(m => m.price)
+    @Html.TextBoxFor(m => m.price)
+    @Html.ValidationMessageFor(m => m.price)
+    <br /><br />
+
+    <input type="submit" value="Update" />
+}
+
+🔷 ✔ The project now supports:
+
+✔ Create
+✔ Read
+✔ Update
+✔ Delete
+✔ Search
+✔ Entity Framework database mapping
+✔ Validation using Data Annotations
+✔ SQL Server (works perfectly with EF)
